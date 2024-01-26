@@ -5,16 +5,24 @@
     return document.querySelector(target)
   }
 
+  const API_URL = 'http://localhost:3000/todos'
+  const $todos = get('.todos')
+  const $form = get('.todo_form')
+  const $todoInput = get('.todo_input')
+
   const createTodoElement = (item) => {
-    const { id, content } = item
+    const { id, content, completed } = item
     const $todoItem = document.createElement('div')
+    const isChecked = completed ? 'checked' : ''
+
     $todoItem.classList.add('item')
     $todoItem.dataset.id = id
     $todoItem.innerHTML = `
             <div class="content">
               <input
                 type="checkbox"
-                class='todo_checkbox' 
+                class='todo_checkbox'
+                ${isChecked} 
               />
               <label>${content}</label>
               <input type="text" value="${content}" />
@@ -39,6 +47,126 @@
     return $todoItem
   }
 
-  const init = () => {}
+  const renderTodos = (todos) => {
+    $todos.innerHTML = ''
+    todos.forEach((it) => {
+      const todoElement = createTodoElement(it)
+      $todos.appendChild(todoElement)
+    })
+  }
+
+  const getTodos = () => {
+    fetch(API_URL)
+      .then((res) => res.json())
+      .then((todos) => renderTodos(todos))
+      .catch((error) => console.error(error))
+  }
+
+  const addTodo = (e) => {
+    e.preventDefault()
+    const todo = {
+      content: $todoInput.value,
+      completed: false,
+    }
+
+    fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(todo),
+    })
+      .then(getTodos)
+      .then(() => {
+        $todoInput.value = ''
+        $todoInput.focus()
+      })
+      .catch((error) => console.error(error))
+  }
+
+  const toggleTodo = (e) => {
+    if (e.target.className !== 'todo_checkbox') return
+    const $item = e.target.closest('.item')
+    const id = $item.dataset.id
+    const completed = e.target.checked
+
+    fetch(`${API_URL}/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ completed }),
+    })
+      .then(getTodos)
+      .catch((error) => console.error(error))
+  }
+
+  const changeEditMod = (e) => {
+    const $item = e.target.closest('.item')
+    const $label = $item.querySelector('label')
+    const $editInput = $item.querySelector('input[type="text"]')
+    const $contentBtn = $item.querySelector('.content_buttons')
+    const $editBtn = $item.querySelector('.edit_buttons')
+    const value = $editInput.value
+
+    if (e.target.className === 'todo_edit_button') {
+      $label.style.display = 'none'
+      $editInput.style.display = 'block'
+      $contentBtn.style.display = 'none'
+      $editBtn.style.display = 'block'
+      $editInput.focus()
+      $editInput.value = ''
+      $editInput.value = value
+    }
+
+    if (e.target.className === 'todo_edit_cancel_button') {
+      $label.style.display = 'block'
+      $editInput.style.display = 'none'
+      $contentBtn.style.display = 'block'
+      $editBtn.style.display = 'none'
+      $editInput.value = $label.innerText
+    }
+  }
+
+  const editTodo = (e) => {
+    if (e.target.className !== 'todo_edit_confirm_button') return
+    const $item = e.target.closest('.item')
+    const id = $item.dataset.id
+    const $editInput = $item.querySelector('input[type="text"]')
+    const content = $editInput.value
+
+    fetch(`${API_URL}/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content }),
+    })
+      .then(getTodos)
+      .catch((error) => console.error(error))
+  }
+
+  const removeTodo = (e) => {
+    if (e.target.className !== 'todo_remove_button') return
+    const $item = e.target.closest('.item')
+    const id = $item.dataset.id
+
+    fetch(`${API_URL}/${id}`, {
+      method: 'DELETE',
+    })
+      .then(getTodos)
+      .catch((error) => console.error(error))
+  }
+
+  const init = () => {
+    window.addEventListener('DOMContentLoaded', () => {
+      getTodos()
+    })
+    $form.addEventListener('submit', addTodo)
+    $todos.addEventListener('click', toggleTodo)
+    $todos.addEventListener('click', changeEditMod)
+    $todos.addEventListener('click', editTodo)
+    $todos.addEventListener('click', removeTodo)
+  }
   init()
 })()
